@@ -1,0 +1,121 @@
+module slow_division (
+  input wire [31:0] dividend,
+  input wire [31:0] divisor,
+  output wire [31:0] quotient,
+  output wire [31:0] remainder
+);
+
+  reg [31:0] A, Q;
+  reg [31:0] temp;
+  reg [5:0] count;
+
+  always @(dividend, divisor) begin
+    A <= dividend;
+    Q <= 0;
+    count <= 32;
+    temp <= divisor;
+
+    while (count > 0) begin
+      if (A >= temp) begin
+        A <= A - temp;
+        Q <= Q | (1 << (count - 1));
+      end
+      temp <= temp >> 1;
+      count <= count - 1;
+    end
+  end
+
+  assign quotient = Q;
+  assign remainder = A;
+
+endmodule
+
+module fast_division (
+  input wire [31:0] dividend,
+  input wire [31:0] divisor,
+  output wire [31:0] quotient,
+  output wire [31:0] remainder
+);
+
+  reg [31:0] A, Q;
+  reg [5:0] count;
+  reg Q_sign, M_sign;
+  wire Q0, M0;
+
+  assign Q0 = Q[0];
+  assign M0 = divisor[0];
+
+  always @(dividend, divisor) begin
+    A <= 0;
+    Q <= dividend;
+    count <= 32;
+    Q_sign <= 0;
+    M_sign <= 0;
+
+    while (count > 0) begin
+      if (A >= 0) begin
+        A <= (A << 1) + Q0 - divisor;
+        Q <= {Q[30:0], ~Q0};
+      end else begin
+        A <= (A << 1) + Q0 + divisor;
+        Q <= {Q[30:0], Q0};
+      end
+      count <= count - 1;
+    end
+  end
+
+  assign quotient = Q;
+  assign remainder = A;
+
+endmodule
+
+module division_tb;
+  reg [31:0] dividend;
+  reg [31:0] divisor;
+  wire [31:0] quotient_slow;
+  wire [31:0] remainder_slow;
+  wire [31:0] quotient_fast;
+  wire [31:0] remainder_fast;
+
+  // Instantiate the slow division module
+  slow_division slow_dut (
+    .dividend(dividend),
+    .divisor(divisor),
+    .quotient(quotient_slow),
+    .remainder(remainder_slow)
+  );
+
+  // Instantiate the fast division module
+  fast_division fast_dut (
+    .dividend(dividend),
+    .divisor(divisor),
+    .quotient(quotient_fast),
+    .remainder(remainder_fast)
+  );
+
+  // Test inputs
+  initial begin
+    dividend = 100;    // Example dividend
+    divisor = 10;      // Example divisor
+    
+    // Wait for division to complete
+    #10;
+    
+    // Display results for slow division
+    $display("Slow Division");
+    $display("Dividend: %d", dividend);
+    $display("Divisor: %d", divisor);
+    $display("Quotient: %d", quotient_slow);
+    $display("Remainder: %d", remainder_slow);
+    
+    // Display results for fast division
+    $display("Fast Division");
+    $display("Dividend: %d", dividend);
+    $display("Divisor: %d", divisor);
+    $display("Quotient: %d", quotient_fast);
+    $display("Remainder: %d", remainder_fast);
+    
+    // Finish simulation
+    $finish;
+  end
+endmodule
